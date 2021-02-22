@@ -19,11 +19,14 @@ import cerberus
 from .Stage import Stage
 
 # TODO: Add ability for multiple pipelines
-# TODO: Add support for stage instances
 # TODO: Add ability for parallel stages
 
 def yamlLoader(configurationText):
     return yaml.load(configurationText, Loader=yaml.FullLoader)
+
+###############################################################################
+# Class StageWrapper
+###
 
 class StageWrapper:
     def __init__(self, moduleName='', module=None, className='',
@@ -66,11 +69,17 @@ class StageWrapper:
             raise AttributeError(f'{className} is not a Pipeline Stage')
 
     def setNames(self, moduleName):
+        instanceName = None
+        if ' ' in moduleName:
+            moduleName, instanceName = moduleName.split()
         self.names = {
             'class': moduleName.split('.')[-1],
             'script': moduleName.split('.')[-2],
             'module': '.'.join(moduleName.split('.')[:-2]),
         }
+        if instanceName:
+            self.names['config'] = instanceName
+            return
         self.names['config'] = '.'.join([
             self.names['module'], self.names['script'], self.names['class']])
 
@@ -83,6 +92,10 @@ class StageWrapper:
         self._class = getattr(self.module, self.names['class'])
         if not inspect.isclass(self._class):
             raise AttributeError(f'Class named {moduleName} not found')
+
+###############################################################################
+# Class Pipeline
+###
 
 class Pipeline:
     def __init__(self, config):
