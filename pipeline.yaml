@@ -1,2 +1,5 @@
 Pipeline:
   - IntegerStage.IntegerStage.IntegerStage
+
+IntegerStage.IntegerStage.IntegerStage:
+  number: 10

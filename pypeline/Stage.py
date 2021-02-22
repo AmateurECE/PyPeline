@@ -12,7 +12,10 @@
 
 class Stage:
     def __init__(self):
-        pass
+        self.configuration = {}
+
+    def configure(self, configuration):
+        self.configuration = configuration
 
     def consume(self, consumedType, *args, **kwargs):
         # pylint: disable=no-member
