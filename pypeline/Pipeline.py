@@ -28,54 +28,60 @@ def yamlLoader(configurationText):
 class StageWrapper:
     def __init__(self, moduleName='', module=None, className='',
                  instance=None, consumer='', provider='', _class=None,
-                 scriptName=''):
-        self.module = {'object': module, 'name': moduleName}
-        self._class = {'object': _class, 'name': className}
-        self.scriptName = scriptName
+                 scriptName='', configName=''):
+        self.module = module
+        self._class = _class
+        self.names = {'module': moduleName, 'class': className,
+                      'script': scriptName, 'configName': configName}
         self.instance = instance
         self.consumer = consumer
         self.provider = provider
 
     def getProviders(self):
-        return self._class['object'].Providers
+        return self._class.Providers
 
     def configure(self, configuration):
         try:
-            configName = '.'.join([self.module['name'], self.scriptName,
-                                   self._class['name']])
-            if configName not in configuration:
+            if self.names['config'] not in configuration:
                 return # No configuration for this module
-            schemaDoc = resources.read_text(self.module['name'], 'schema.yaml')
-            schema = yamlLoader(schemaDoc)
+            schema = yamlLoader(
+                resources.read_text(self.names['module'], 'schema.yaml'))
             validator = cerberus.Validator(schema)
-            validator.validate(configuration[configName])
+            validator.validate(configuration[self.names['config']])
         except FileNotFoundError:
             pass
-        self.instance.configure(configuration[configName])
+        self.instance.configure(configuration[self.names['config']])
         return
 
     def instantiateConsumerOf(self, consumer):
-        if not hasattr(self._class['object'], 'Consumers') or \
-           not hasattr(self._class['object'], 'Providers') or \
-           consumer not in self._class['object'].Consumers:
-            raise AttributeError(f'{self._class["name"]} does not have a '
+        if not hasattr(self._class, 'Consumers') or \
+           not hasattr(self._class, 'Providers') or \
+           consumer not in self._class.Consumers:
+            raise AttributeError(f'{self.names["class"]} does not have a '
                                  '"{consumer}" Consumer')
-        self.instance = self._class['object']()
+        self.instance = self._class()
         self.consumer = consumer
         if not isinstance(self.instance, Stage):
-            className = self._class['name']
+            className = self.names['class']
             raise AttributeError(f'{className} is not a Pipeline Stage')
 
+    def setNames(self, moduleName):
+        self.names = {
+            'class': moduleName.split('.')[-1],
+            'script': moduleName.split('.')[-2],
+            'module': '.'.join(moduleName.split('.')[:-2]),
+        }
+        self.names['config'] = '.'.join([
+            self.names['module'], self.names['script'], self.names['class']])
+
+
     def loadModule(self, moduleName):
-        self._class['name'] = moduleName.split('.')[-1]
-        self.scriptName = moduleName.split('.')[-2]
-        self.module['name'] = '.'.join(moduleName.split('.')[:-2])
-        self.module['object'] = __import__(
-            self.module['name'] + '.' + self.scriptName,
-            fromlist=[self._class['name']])
-        self._class['object'] = getattr(
-            self.module['object'], self._class['name'])
-        if not inspect.isclass(self._class['object']):
+        self.setNames(moduleName)
+        self.module = __import__(
+            self.names['module'] + '.' + self.names['script'],
+            fromlist=[self.names['class']])
+        self._class = getattr(self.module, self.names['class'])
+        if not inspect.isclass(self._class):
             raise AttributeError(f'Class named {moduleName} not found')
 
 class Pipeline:
