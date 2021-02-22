@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="pypeline",
-    version="0.1.0",
+    version="0.2.0",
     author="Ethan Twardy",
     author_email="ethan.twardy@gmail.com",
     description="Framework for creating generic data pipelines",

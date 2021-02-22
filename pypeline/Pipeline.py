@@ -18,6 +18,10 @@ import yaml
 import cerberus
 from .Stage import Stage
 
+# TODO: Add ability for multiple pipelines
+# TODO: Add support for stage instances
+# TODO: Add ability for parallel stages
+
 def yamlLoader(configurationText):
     return yaml.load(configurationText, Loader=yaml.FullLoader)
 
@@ -75,9 +79,9 @@ class StageWrapper:
             raise AttributeError(f'Class named {moduleName} not found')
 
 class Pipeline:
-    def __init__(self):
-        # TODO: RAII
+    def __init__(self, config):
         self.pipeline = list()
+        self.configure(config)
 
     def loadInitialStage(self, firstStage):
         firstClass = StageWrapper()
@@ -87,7 +91,6 @@ class Pipeline:
         return firstClass
 
     def loadAdditionalStage(self, stage):
-        # TODO: Add ability for parallel stages
         # Verify provider of first class matches consumer of second class
         wrapper = StageWrapper()
         wrapper.loadModule(stage)
@@ -101,19 +104,8 @@ class Pipeline:
                 pass
         raise AttributeError(f'{stage} has no Consumer for precedents')
 
-    @classmethod
-    def readConfig(cls, configurationFile, loader=yamlLoader):
-        configuration = loader(''.join(configurationFile.readlines()))
-
-        # Validate configuration file
-        schema = yamlLoader(resources.read_text('pypeline', 'schema.yaml'))
-        validator = cerberus.Validator(schema)
-        validator.validate(configuration)
-        return configuration
-
-    def configure(self, configurationFile, loader=yamlLoader):
+    def configure(self, config):
         # Read configuration
-        config = Pipeline.readConfig(configurationFile, loader)
         if 'Pipeline' not in config or not config['Pipeline']:
             return
 
@@ -134,17 +126,28 @@ class Pipeline:
             instance.consume(stageWrapper.consumer, output)
             output = instance.provide(stageWrapper.provider)
 
-def getArguments():
+###############################################################################
+# Main
+###
+
+def readConfig(configurationFile, loader=yamlLoader):
+    configuration = loader(''.join(configurationFile.readlines()))
+
+    # Validate configuration file
+    schema = yamlLoader(resources.read_text('pypeline', 'schema.yaml'))
+    validator = cerberus.Validator(schema)
+    validator.validate(configuration)
+    return configuration
+
+def main():
+    # Get command line arguments
     parser = argparse.ArgumentParser()
     parser.add_argument('--file', '-f', help=('The Pipeline file'),
                         default='pipeline.yaml')
-    return vars(parser.parse_args())
+    arguments = vars(parser.parse_args())
 
-def main():
-    arguments = getArguments()
-    pipeline = Pipeline()
-    with open(arguments['file'], 'r') as configurationFile:
-        pipeline.configure(configurationFile)
+    with open(arguments['file'], 'r') as configFile:
+        pipeline = Pipeline(readConfig(configFile))
     pipeline.execute()
 
 if __name__ == '__main__':
